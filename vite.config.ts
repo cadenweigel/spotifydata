@@ -1,3 +1,8 @@
+/**
+ * Vite and Vitest share this file. It turns on React, maps the @ alias to src,
+ * and tells tests to run in jsdom with src/test/setup.ts.
+ */
+
 import { defineConfig } from "vitest/config";
 import react from "@vitejs/plugin-react";
 import { fileURLToPath, URL } from "node:url";

@@ -1,3 +1,4 @@
+/* Reset and base typography for every page. Colors and spacing come from tokens.css. */
 @import "./tokens.css";
 
 *,

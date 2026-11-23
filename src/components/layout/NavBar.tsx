@@ -1,3 +1,8 @@
+/**
+ * Top bar. The app name goes home. Data, Graphs, and Analysis are the other routes.
+ * The link for the current route is highlighted.
+ */
+
 import { NavLink } from "react-router-dom";
 import styles from "./NavBar.module.css";
 
@@ -7,6 +12,7 @@ const links = [
   { to: "/analysis", label: "Analysis", end: true },
 ] as const;
 
+/** Renders the brand link and the three section links. */
 export function NavBar() {
   return (
     <nav className={styles.nav} aria-label="Main">

@@ -1,3 +1,8 @@
+/**
+ * Display helpers shared by every page. They format numbers and dates only.
+ * They do not decide which streams are included.
+ */
+
 /** Format a millisecond duration for display. */
 export function formatDuration(ms: number): string {
   if (ms <= 0) return "0m";

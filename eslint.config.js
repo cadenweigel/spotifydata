@@ -1,3 +1,8 @@
+/**
+ * Lint rules. The later blocks keep the layers apart: data stays free of React,
+ * state does not import pages, and Recharts can only be imported from graph components.
+ */
+
 import js from "@eslint/js";
 import globals from "globals";
 import reactHooks from "eslint-plugin-react-hooks";

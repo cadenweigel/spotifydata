@@ -1,3 +1,4 @@
+/* Styles for the top bar and its links, including the active route. */
 .nav {
   display: flex;
   align-items: center;

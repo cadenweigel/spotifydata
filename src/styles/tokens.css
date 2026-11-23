@@ -1,3 +1,4 @@
+/* Shared colors, spacing, and fonts. The scheme follows the user's light or dark setting. */
 :root {
   color-scheme: light dark;
 

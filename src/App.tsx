@@ -1,3 +1,8 @@
+/**
+ * Route table for the app. Every page sits inside AppLayout and shares the
+ * dataset through DatasetProvider. "/" is Main; unknown paths are NotFound.
+ */
+
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AppLayout } from "@/components/layout/AppLayout";
 import { AnalysisPage } from "@/pages/AnalysisPage";
@@ -7,6 +12,7 @@ import { MainPage } from "@/pages/MainPage";
 import { NotFoundPage } from "@/pages/NotFoundPage";
 import { DatasetProvider } from "@/state/DatasetProvider";
 
+/** Mounts the shared dataset and the routes. No data loading happens here. */
 export default function App() {
   return (
     <DatasetProvider>
