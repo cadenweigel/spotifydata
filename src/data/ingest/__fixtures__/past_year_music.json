@@ -1,0 +1,14 @@
+[
+  {
+    "endTime": "2019-01-01 00:00",
+    "artistName": "PAST_YEAR_SENTINEL",
+    "trackName": "Old Song",
+    "msPlayed": 10000
+  },
+  {
+    "endTime": "2019-01-02 00:00",
+    "artistName": "Someone",
+    "trackName": "Other Song",
+    "msPlayed": 20000
+  }
+]
