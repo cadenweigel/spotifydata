@@ -2,7 +2,8 @@
  * Reads an upload of loose files or a zip and returns parsed extended-audio JSON.
  * collectFiles flattens a file picker or a drop. readFiles classifies every
  * JSON file by name first, then parses only extended audio, one file at a time.
- * The rows are still Spotify's own objects; normalizing them is a later step.
+ * The rows are still Spotify's own objects. ingest.ts maps them to streams
+ * and builds the dataset summary.
  */
 
 import { unzip } from "fflate";
