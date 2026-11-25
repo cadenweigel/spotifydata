@@ -1,9 +1,11 @@
 /**
  * Top bar. The app name goes home. Data, Graphs, and Analysis are the other routes.
- * The link for the current route is highlighted.
+ * Those links are hidden until a dataset is loaded. The current route is highlighted.
  */
 
 import { NavLink } from "react-router-dom";
+import { useDataset } from "@/state/useDataset";
+import { DatasetSummary } from "./DatasetSummary";
 import styles from "./NavBar.module.css";
 
 const links = [
@@ -12,28 +14,32 @@ const links = [
   { to: "/analysis", label: "Analysis", end: true },
 ] as const;
 
-/** Renders the brand link and the three section links. */
+/** Renders the brand link, the dataset summary, and the three section links. */
 export function NavBar() {
+  const { dataset } = useDataset();
   return (
     <nav className={styles.nav} aria-label="Main">
       <NavLink to="/" className={styles.brand} end>
         Spotify Data
       </NavLink>
-      <ul className={styles.links}>
-        {links.map((link) => (
-          <li key={link.to}>
-            <NavLink
-              to={link.to}
-              end={link.end}
-              className={({ isActive }) =>
-                isActive ? `${styles.link} ${styles.active}` : styles.link
-              }
-            >
-              {link.label}
-            </NavLink>
-          </li>
-        ))}
-      </ul>
+      <DatasetSummary />
+      {dataset ? (
+        <ul className={styles.links}>
+          {links.map((link) => (
+            <li key={link.to}>
+              <NavLink
+                to={link.to}
+                end={link.end}
+                className={({ isActive }) =>
+                  isActive ? `${styles.link} ${styles.active}` : styles.link
+                }
+              >
+                {link.label}
+              </NavLink>
+            </li>
+          ))}
+        </ul>
+      ) : null}
     </nav>
   );
 }

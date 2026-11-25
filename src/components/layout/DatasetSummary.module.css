@@ -1,0 +1,10 @@
+/* Music-stream count and date range, shown in the nav. */
+.summary {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  text-align: center;
+  color: var(--color-nav-muted);
+  font-size: 0.9rem;
+  font-variant-numeric: tabular-nums;
+}

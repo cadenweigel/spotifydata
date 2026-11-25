@@ -1,0 +1,21 @@
+/* Titled message for an upload that did not open the hub. */
+.box {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-4);
+  background: var(--color-surface);
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+}
+
+.title {
+  font-size: 1.125rem;
+  font-weight: 650;
+}
+
+.message {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}

@@ -18,9 +18,35 @@ describe("App routes", () => {
         <App />
       </MemoryRouter>,
     );
-    expect(await screen.findByRole("heading", { name: "Main" })).toBeInTheDocument();
+    expect(
+      await screen.findByRole("heading", { name: "Add your Spotify history" }),
+    ).toBeInTheDocument();
     expect(screen.queryByRole("heading", { name: "Graphs" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: "Data" })).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Spotify Data" })).toBeInTheDocument();
     expect(screen.getByRole("combobox", { name: "Listen time" })).toBeInTheDocument();
+  });
+
+  // A file dragged onto the window must not navigate away. A text drag still can.
+  // Input: a dragover whose type is Files, then one whose type is text.
+  // Expected: only the file drag is cancelled.
+  it("cancels a file drag on the window", async () => {
+    render(
+      <MemoryRouter initialEntries={["/"]}>
+        <App />
+      </MemoryRouter>,
+    );
+    await screen.findByRole("heading", { name: "Add your Spotify history" });
+
+    const fileDrag = new Event("dragover", { cancelable: true });
+    Object.defineProperty(fileDrag, "dataTransfer", { value: { types: ["Files"] } });
+    window.dispatchEvent(fileDrag);
+    expect(fileDrag.defaultPrevented).toBe(true);
+
+    const textDrag = new Event("dragover", { cancelable: true });
+    Object.defineProperty(textDrag, "dataTransfer", { value: { types: ["text/plain"] } });
+    window.dispatchEvent(textDrag);
+    expect(textDrag.defaultPrevented).toBe(false);
   });
 
   // Unknown paths stay on the not-found page.
