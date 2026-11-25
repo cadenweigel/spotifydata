@@ -1,13 +1,21 @@
 /**
- * Tests for filterStreams and groupEntities. Streams are built here and are
- * not from a Spotify export. Day bounds are local calendar days, so filter
- * fixtures are built with the local Date constructor and then stored as UTC
- * ISO strings, the same form as endedAt.
+ * Tests for filterStreams, groupEntities, and the table helpers that sort,
+ * search, and page those rows. Streams are built here and are not from a
+ * Spotify export. Day bounds are local calendar days, so filter fixtures
+ * are built with the local Date constructor and then stored as UTC ISO
+ * strings, the same form as endedAt.
  */
 
 import { describe, expect, it } from "vitest";
-import type { Stream } from "@/data/types";
-import { filterStreams, groupEntities, type StreamFilter } from "./aggregate";
+import type { EntityRow, Stream } from "@/data/types";
+import {
+  filterStreams,
+  groupEntities,
+  paginate,
+  searchEntities,
+  sortEntities,
+  type StreamFilter,
+} from "./aggregate";
 
 const open: StreamFilter = {
   thresholdMs: 0,
@@ -578,4 +586,172 @@ describe("groupEntities", () => {
     expect(rows).toHaveLength(artistCount);
     expect(rows[0]?.streams).toBe(total / artistCount);
   }, 30_000);
+});
+
+function entity(overrides: Partial<EntityRow> & Pick<EntityRow, "key" | "name">): EntityRow {
+  return {
+    subtitle: null,
+    streams: 1,
+    listenTimeMs: 60_000,
+    firstStream: "2020-01-01T00:00:00.000Z",
+    lastStream: "2020-01-01T00:00:00.000Z",
+    trackCount: null,
+    albumCount: null,
+    skipRate: null,
+    ...overrides,
+  };
+}
+
+describe("sortEntities", () => {
+  // First play is oldest first. Last play is newest first.
+  // Input: a 2020 play before a 2018 play for the first sort, and the reverse for the last sort.
+  // Expected: 2018 then 2020 by first play. 2021 then 2019 by last play.
+  it("orders first stream oldest-first and last stream newest-first", () => {
+    const older = entity({
+      key: "older",
+      name: "Older",
+      firstStream: "2018-01-01T00:00:00.000Z",
+      lastStream: "2019-06-01T00:00:00.000Z",
+    });
+    const newer = entity({
+      key: "newer",
+      name: "Newer",
+      firstStream: "2020-03-01T00:00:00.000Z",
+      lastStream: "2021-01-01T00:00:00.000Z",
+    });
+
+    expect(sortEntities([newer, older], "firstStream").map((row) => row.key)).toEqual([
+      "older",
+      "newer",
+    ]);
+    expect(sortEntities([older, newer], "lastStream").map((row) => row.key)).toEqual([
+      "newer",
+      "older",
+    ]);
+  });
+
+  // Stream count and listen time are both highest first.
+  // Input: few long plays, then many short ones.
+  // Expected: many first by streams, few first by listen time.
+  it("orders streams and listen time highest first", () => {
+    const few = entity({ key: "few", name: "Few", streams: 2, listenTimeMs: 500_000 });
+    const many = entity({ key: "many", name: "Many", streams: 9, listenTimeMs: 1_000 });
+
+    expect(sortEntities([few, many], "streams").map((row) => row.key)).toEqual(["many", "few"]);
+    expect(sortEntities([many, few], "listenTime").map((row) => row.key)).toEqual(["few", "many"]);
+  });
+
+  // Equal values break by name, then by key, and a second call matches the first.
+  // Input: three rows with the same stream count, two of them named "Alpha".
+  // Expected: Alpha keys in key order, then Beta. Calling sort again is identical.
+  it("breaks ties the same way on every call", () => {
+    const beta = entity({ key: "b", name: "Beta", streams: 5 });
+    const alphaLater = entity({ key: "a2", name: "alpha", streams: 5 });
+    const alpha = entity({ key: "a", name: "Alpha", streams: 5 });
+    const input = [beta, alphaLater, alpha];
+
+    const once = sortEntities(input, "streams").map((row) => row.key);
+    const twice = sortEntities(input, "streams").map((row) => row.key);
+
+    expect(once).toEqual(["a", "a2", "b"]);
+    expect(twice).toEqual(once);
+  });
+
+  // Numeric collation, so a number inside the name sorts by value.
+  // Input: "Track 10" before "Track 2".
+  // Expected: "Track 2", then "Track 10".
+  it("orders Track 2 before Track 10", () => {
+    const ten = entity({ key: "10", name: "Track 10" });
+    const two = entity({ key: "2", name: "Track 2" });
+
+    expect(sortEntities([ten, two], "alpha").map((row) => row.name)).toEqual([
+      "Track 2",
+      "Track 10",
+    ]);
+  });
+
+  // The input array stays in place for a later page to reuse.
+  // Input: Track 10, then Track 2.
+  // Expected: a new array in alphabetical order, and the original order unchanged.
+  it("returns a new array and does not change the input", () => {
+    const ten = entity({ key: "10", name: "Track 10" });
+    const two = entity({ key: "2", name: "Track 2" });
+    const input = [ten, two];
+
+    const sorted = sortEntities(input, "alpha");
+
+    expect(sorted).not.toBe(input);
+    expect(sorted.map((row) => row.name)).toEqual(["Track 2", "Track 10"]);
+    expect(input.map((row) => row.name)).toEqual(["Track 10", "Track 2"]);
+  });
+});
+
+describe("paginate", () => {
+  // Page 2 continues the rank instead of starting over at 1.
+  // Input: 250 rows, page 2, page size 100.
+  // Expected: rows 101 through 200, with startRank 101.
+  it("gives page 2 ranks 101 through 200", () => {
+    const rows = Array.from({ length: 250 }, (_, index) =>
+      entity({ key: String(index), name: `Artist ${index}` }),
+    );
+
+    const page = paginate(rows, 2, 100);
+    const ranks = page.rows.map((_, index) => page.startRank + index);
+
+    expect(page.page).toBe(2);
+    expect(page.pageCount).toBe(3);
+    expect(page.total).toBe(250);
+    expect(page.rows).toHaveLength(100);
+    expect(ranks[0]).toBe(101);
+    expect(ranks[ranks.length - 1]).toBe(200);
+    expect(page.rows[0]).toBe(rows[100]);
+    expect(page.rows[99]).toBe(rows[199]);
+  });
+
+  // A page outside the list is pulled back in. No rows is still page 1 of 1.
+  // Input: 250 rows with page 0 and page 50, then an empty list asking for page 4.
+  // Expected: page 1, page 3, and one empty page.
+  it("clamps the page and keeps an empty list on page 1", () => {
+    const rows = Array.from({ length: 250 }, (_, index) =>
+      entity({ key: String(index), name: `Artist ${index}` }),
+    );
+
+    expect(paginate(rows, 0, 100).page).toBe(1);
+    expect(paginate(rows, 0, 100).startRank).toBe(1);
+    expect(paginate(rows, 50, 100)).toMatchObject({
+      page: 3,
+      pageCount: 3,
+      startRank: 201,
+    });
+    expect(paginate(rows, 50, 100).rows).toHaveLength(50);
+    expect(paginate([], 4, 25)).toEqual({
+      rows: [],
+      page: 1,
+      pageCount: 1,
+      total: 0,
+      startRank: 1,
+    });
+  });
+});
+
+describe("searchEntities", () => {
+  // The query matches a name or a subtitle, ignoring case. A blank query does nothing.
+  // Input: a song, an album by the same artist, and an unrelated row.
+  // Expected: the Zeppelin rows for "zep", the song for "black", and the same array for a blank query.
+  it("matches name or subtitle and leaves a blank query untouched", () => {
+    const song = entity({
+      key: "song",
+      name: "Black Dog",
+      subtitle: "Led Zeppelin \u2014 IV",
+    });
+    const album = entity({ key: "album", name: "IV", subtitle: "Led Zeppelin" });
+    const other = entity({ key: "other", name: "Other Band", subtitle: null });
+    const rows = [song, other, album];
+
+    expect(searchEntities(rows, "  zep ").map((row) => row.key)).toEqual(["song", "album"]);
+    expect(searchEntities(rows, "BLACK").map((row) => row.key)).toEqual(["song"]);
+    expect(searchEntities(rows, "")).toBe(rows);
+    expect(searchEntities(rows, "   ")).toBe(rows);
+    expect(rows.map((row) => row.key)).toEqual(["song", "other", "album"]);
+  });
 });

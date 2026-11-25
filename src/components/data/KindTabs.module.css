@@ -1,0 +1,31 @@
+/* Artists, Albums, and Songs as one segmented control. */
+.tabs {
+  display: inline-flex;
+  align-self: flex-start;
+  border: 1px solid var(--color-border);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+  background: var(--color-surface);
+}
+
+.tab {
+  padding: var(--space-2) var(--space-4);
+  color: var(--color-text-muted);
+  text-decoration: none;
+}
+
+.tab:hover {
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.current {
+  color: var(--color-nav-text);
+  background: var(--color-nav);
+  font-weight: 600;
+}
+
+.current:hover {
+  color: var(--color-nav-text);
+  background: var(--color-nav);
+}

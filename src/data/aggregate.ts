@@ -1,12 +1,14 @@
 /**
  * Turns a stream list into table rows. No React.
  * filterStreams applies the listen settings. groupEntities folds the
- * remaining rows into artists, albums, or tracks.
+ * remaining rows into artists, albums, or tracks. searchEntities,
+ * sortEntities, and paginate order that list for one page of the table.
  * Dates in the filter are the user's local calendar days, compared to
- * endedAt as epoch milliseconds. Grouping compares endedAt as ISO strings.
+ * endedAt as epoch milliseconds. Grouping and sorting compare endedAt
+ * as ISO strings.
  */
 
-import type { EntityKind, EntityRow, Stream } from "@/data/types";
+import type { EntityKind, EntityRow, SortKey, Stream } from "@/data/types";
 import { cleanName } from "./names";
 
 /** Settings for one filter pass. */
@@ -391,4 +393,124 @@ function toRow(key: string, acc: Accumulator, kind: EntityKind): EntityRow {
     albumCount: countAlbums(acc.albums),
     skipRate: knownSkipRate(acc.skippedCount, acc.knownSkipCount),
   };
+}
+
+/**
+ * One collator for every name comparison. Building one per row is slow
+ * on a long list. Numeric order puts "Track 2" before "Track 10", and
+ * base sensitivity ignores case.
+ */
+const nameCollator = new Intl.Collator(undefined, {
+  numeric: true,
+  sensitivity: "base",
+});
+
+/**
+ * One page of entity rows. Rank is not stored on the row: the first row's
+ * rank is startRank, and the next row is one higher. The table does not sort.
+ */
+export type EntityPage = {
+  rows: EntityRow[];
+  /** 1-based page, clamped into range. */
+  page: number;
+  pageCount: number;
+  total: number;
+  /** Rank of rows[0]. 1 when the page is empty. */
+  startRank: number;
+};
+
+/**
+ * Orders rows for the table.
+ * Input is the entity rows and a sort key. Streams and listen time are
+ * highest first. The first play is oldest first. The last play is newest
+ * first. Alphabetical order uses the shared name collator.
+ * Ties break by name ascending, then by key, so the same input always
+ * yields the same order. Returns a new array and does not change the input.
+ */
+export function sortEntities(rows: readonly EntityRow[], sortKey: SortKey): EntityRow[] {
+  const sorted = rows.slice();
+  sorted.sort((a, b) => compareRows(a, b, sortKey));
+  return sorted;
+}
+
+/**
+ * Keeps rows whose name or subtitle contains the query.
+ * Input is the entity rows and the user's text. The query is trimmed.
+ * Matching is case-insensitive. A blank query returns the same array.
+ * The result stays in input order, ready to be sorted.
+ */
+export function searchEntities(rows: readonly EntityRow[], query: string): readonly EntityRow[] {
+  const needle = query.trim().toLowerCase();
+  if (needle === "") return rows;
+
+  const matched: EntityRow[] = [];
+  for (const row of rows) {
+    if (row.name.toLowerCase().includes(needle)) {
+      matched.push(row);
+      continue;
+    }
+    if (row.subtitle !== null && row.subtitle.toLowerCase().includes(needle)) {
+      matched.push(row);
+    }
+  }
+  return matched;
+}
+
+/**
+ * Slices one page from an already sorted list.
+ * Input is the rows, a 1-based page, and the page size. The page is
+ * clamped into range. An empty list is one empty page, so the UI never
+ * shows "page 1 of 0". startRank is the rank of the first row on the page.
+ */
+export function paginate(rows: readonly EntityRow[], page: number, pageSize: number): EntityPage {
+  const total = rows.length;
+  const pageCount = total === 0 ? 1 : Math.ceil(total / pageSize);
+  const requested = Number.isFinite(page) ? Math.trunc(page) : 1;
+  const current = Math.min(pageCount, Math.max(1, requested));
+  const start = (current - 1) * pageSize;
+
+  return {
+    rows: rows.slice(start, start + pageSize),
+    page: current,
+    pageCount,
+    total,
+    startRank: start + 1,
+  };
+}
+
+/** Primary order, then name, then key. */
+function compareRows(a: EntityRow, b: EntityRow, sortKey: SortKey): number {
+  const primary = comparePrimary(a, b, sortKey);
+  if (primary !== 0) return primary;
+  const byName = nameCollator.compare(a.name, b.name);
+  if (byName !== 0) return byName;
+  if (a.key < b.key) return -1;
+  if (a.key > b.key) return 1;
+  return 0;
+}
+
+/**
+ * The sort key's own direction. Alphabetical order is handled by the
+ * name tie-break, so this returns 0 for "alpha".
+ */
+function comparePrimary(a: EntityRow, b: EntityRow, sortKey: SortKey): number {
+  switch (sortKey) {
+    case "streams":
+      return b.streams - a.streams;
+    case "listenTime":
+      return b.listenTimeMs - a.listenTimeMs;
+    case "firstStream":
+      return compareIso(a.firstStream, b.firstStream);
+    case "lastStream":
+      return compareIso(b.lastStream, a.lastStream);
+    case "alpha":
+      return 0;
+  }
+}
+
+/** ISO strings in the same format compare in time order. */
+function compareIso(a: string, b: string): number {
+  if (a < b) return -1;
+  if (a > b) return 1;
+  return 0;
 }
