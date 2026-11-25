@@ -1,0 +1,14 @@
+/* Shown instead of a data page while a visit is still parsing. */
+.progress {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.message {
+  font-size: 1.125rem;
+}
+
+.detail {
+  color: var(--color-text-muted);
+}

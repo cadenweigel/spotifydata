@@ -20,6 +20,7 @@ local-fixtures/
 plan.txt
 plan.md
 upload.md
+data.md
 
 # Editor directories and files
 .vscode/*
