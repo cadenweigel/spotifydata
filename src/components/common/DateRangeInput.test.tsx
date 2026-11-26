@@ -40,6 +40,36 @@ describe("DateRangeInput", () => {
     expect(onChange).toHaveBeenCalledWith("2020-02-01", "2020-06-01");
   });
 
+  // A new applied range, such as Reset, replaces whatever is in the inputs.
+  // Input: an inverted draft, then new from and to props.
+  // Expected: the inputs show the new days and the message is gone.
+  it("replaces the drafts when the applied range changes", () => {
+    const { rerender } = render(
+      <DateRangeInput
+        from="2020-01-01"
+        to="2020-06-01"
+        showReset
+        onChange={vi.fn()}
+        onReset={vi.fn()}
+      />,
+    );
+    fireEvent.change(screen.getByLabelText("From"), { target: { value: "2020-12-01" } });
+    expect(screen.getByRole("alert")).toBeInTheDocument();
+
+    rerender(
+      <DateRangeInput
+        from="2020-03-01"
+        to="2020-04-01"
+        showReset
+        onChange={vi.fn()}
+        onReset={vi.fn()}
+      />,
+    );
+    expect(screen.getByLabelText("From")).toHaveValue("2020-03-01");
+    expect(screen.getByLabelText("To")).toHaveValue("2020-04-01");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
   // Reset dates is offered only when the parent says the range is narrowed.
   // Input: showReset, then a click.
   // Expected: onReset is called.

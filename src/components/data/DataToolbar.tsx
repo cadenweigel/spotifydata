@@ -87,16 +87,15 @@ export function DataToolbar({
  */
 function FilterField({ value, onChange }: { value: string; onChange: (value: string) => void }) {
   const [text, setText] = useState(value);
-  const [seen, setSeen] = useState(value);
   const sent = useRef(value);
 
-  if (value !== seen) {
-    setSeen(value);
-    if (value !== sent.current) {
-      sent.current = value;
-      setText(value);
-    }
-  }
+  // Reset and Back replace the text. An echo of what this field just
+  // sent does not, so a keystroke typed during the pause is kept.
+  useEffect(() => {
+    if (value === sent.current) return;
+    sent.current = value;
+    setText(value);
+  }, [value]);
 
   useEffect(() => {
     if (text === value) return;

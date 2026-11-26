@@ -3,7 +3,7 @@
  * Data and Graphs both use this. An inverted range is shown and not applied.
  */
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import styles from "./DateRangeInput.module.css";
 
 type DateRangeInputProps = {
@@ -34,13 +34,13 @@ export function DateRangeInput({
 }: DateRangeInputProps) {
   const [draftFrom, setDraftFrom] = useState(from);
   const [draftTo, setDraftTo] = useState(to);
-  const [seen, setSeen] = useState({ from, to });
 
-  if (from !== seen.from || to !== seen.to) {
-    setSeen({ from, to });
+  // Reset and Back change the applied days. Copy them into the inputs
+  // after render, so a keystroke is not overwritten while it is in flight.
+  useEffect(() => {
     setDraftFrom(from);
     setDraftTo(to);
-  }
+  }, [from, to]);
 
   const inverted = draftFrom !== "" && draftTo !== "" && draftFrom > draftTo;
 
