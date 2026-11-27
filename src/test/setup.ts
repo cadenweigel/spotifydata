@@ -9,6 +9,48 @@ import { cleanup } from "@testing-library/react";
 import { afterEach } from "vitest";
 import "@testing-library/jest-dom/vitest";
 
+// jsdom has no ResizeObserver. Charts measure their parent with one.
+if (typeof globalThis.ResizeObserver === "undefined") {
+  globalThis.ResizeObserver = class {
+    private readonly callback: ResizeObserverCallback;
+
+    constructor(callback: ResizeObserverCallback) {
+      this.callback = callback;
+    }
+
+    observe(target: Element) {
+      const rect = target.getBoundingClientRect();
+      const width = rect.width || 640;
+      const height = rect.height || 360;
+      this.callback(
+        [
+          {
+            target,
+            contentRect: {
+              x: 0,
+              y: 0,
+              top: 0,
+              left: 0,
+              width,
+              height,
+              bottom: height,
+              right: width,
+              toJSON() {
+                return {};
+              },
+            },
+          } as ResizeObserverEntry,
+        ],
+        this as unknown as ResizeObserver,
+      );
+    }
+
+    unobserve() {}
+
+    disconnect() {}
+  };
+}
+
 // This jsdom build's Blob has no text() or arrayBuffer(). Browsers do.
 // FileReader is the fallback those methods are specified in terms of.
 const blobPrototype = Blob.prototype as Blob & {

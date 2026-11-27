@@ -4,6 +4,14 @@
  * writePrefs replaces the object and keeps any keys this version does not use.
  */
 
+import {
+  defaultGraphQuery,
+  queriesEqual,
+  readStoredGraphQuery,
+  sanitizeQuery,
+  type GraphQuery,
+} from "@/data/graph/graphQuery";
+
 export const PREFS_KEY = "spotifydata-prefs";
 
 /** Longest custom threshold the controls will store: 24 hours. */
@@ -20,9 +28,15 @@ export type Prefs = {
   /** Whole seconds, stored as milliseconds. 0 counts every play. */
   streamThresholdMs: number;
   includePodcasts: boolean;
+  /**
+   * The last graph, without entity keys. A bare /graphs visit starts here.
+   * version stays 1: this is the first GraphQuery shape. Bump version only
+   * when those fields change.
+   */
+  graphQuery: GraphQuery;
 };
 
-export type PrefsPatch = Partial<Pick<Prefs, "streamThresholdMs" | "includePodcasts">>;
+export type PrefsPatch = Partial<Pick<Prefs, "streamThresholdMs" | "includePodcasts" | "graphQuery">>;
 
 export type LoadedPrefs = {
   prefs: Prefs;
@@ -34,7 +48,7 @@ export type LoadedPrefs = {
   changed: boolean;
 };
 
-const KNOWN_KEYS = new Set(["version", "streamThresholdMs", "includePodcasts"]);
+const KNOWN_KEYS = new Set(["version", "streamThresholdMs", "includePodcasts", "graphQuery"]);
 
 /**
  * The preferences used when nothing valid is stored.
@@ -42,7 +56,12 @@ const KNOWN_KEYS = new Set(["version", "streamThresholdMs", "includePodcasts"]);
  * Returns a new object, so a caller can change it without changing the defaults.
  */
 export function defaultPrefs(): Prefs {
-  return { version: 1, streamThresholdMs: 30_000, includePodcasts: false };
+  return {
+    version: 1,
+    streamThresholdMs: 30_000,
+    includePodcasts: false,
+    graphQuery: defaultGraphQuery(),
+  };
 }
 
 /**
@@ -106,6 +125,13 @@ export function readPrefs(storage: Storage = localStorage): LoadedPrefs {
   else changed = true;
   if (typeof parsed.includePodcasts === "boolean") prefs.includePodcasts = parsed.includePodcasts;
   else changed = true;
+  const storedGraph = readStoredGraphQuery(parsed.graphQuery);
+  if (!storedGraph) changed = true;
+  else {
+    prefs.graphQuery = storedGraph;
+    // Entity keys are stripped on purpose. A stored list still needs a rewrite.
+    if (!queriesEqual(storedGraph, sanitizeQuery(parsed.graphQuery))) changed = true;
+  }
 
   const extras: Record<string, unknown> = {};
   for (const key of Object.keys(parsed)) {
@@ -126,6 +152,10 @@ export function applyPrefsPatch(prefs: Prefs, patch: PrefsPatch): Prefs {
     next.streamThresholdMs = patch.streamThresholdMs;
   }
   if (typeof patch.includePodcasts === "boolean") next.includePodcasts = patch.includePodcasts;
+  if (patch.graphQuery !== undefined) {
+    const stored = readStoredGraphQuery(patch.graphQuery);
+    if (stored) next.graphQuery = stored;
+  }
   return next;
 }
 

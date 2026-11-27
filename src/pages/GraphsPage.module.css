@@ -1,0 +1,6 @@
+/* Graphs page stack: heading, controls, chart. */
+.page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+}

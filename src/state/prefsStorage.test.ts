@@ -98,15 +98,15 @@ describe("readPrefs", () => {
 
 describe("writePrefs", () => {
   // A custom threshold and an unknown key both survive a write.
-  // Input: 45 seconds, podcasts on, and a graphQuery key this version does not use.
+  // Input: 45 seconds, podcasts on, and a futureSetting key this version does not use.
   // Expected: the next read returns both, plus the unknown key.
   it("round-trips a custom threshold and keeps an unknown key", () => {
     const storage = memoryStorage();
     const prefs = { ...defaultPrefs(), streamThresholdMs: 45_000, includePodcasts: true };
-    writePrefs(prefs, { graphQuery: { m: "time" } }, storage);
+    writePrefs(prefs, { futureSetting: { m: "time" } }, storage);
     const loaded = readPrefs(storage);
     expect(loaded.prefs).toEqual(prefs);
-    expect(loaded.extras).toEqual({ graphQuery: { m: "time" } });
+    expect(loaded.extras).toEqual({ futureSetting: { m: "time" } });
     expect(loaded.changed).toBe(false);
   });
 
@@ -119,6 +119,63 @@ describe("writePrefs", () => {
       throw new Error("quota");
     };
     expect(() => writePrefs(defaultPrefs(), {}, storage)).not.toThrow();
+  });
+});
+
+describe("graphQuery", () => {
+  // A unique count with no time bucket is not a chart we can keep.
+  // Input: a stored query whose measure the sanitizer would replace.
+  // Expected: Listening over time, and the stored text is marked for repair.
+  it("falls back when the saved measure had to change", () => {
+    const loaded = readPrefs(
+      memoryStorage(
+        JSON.stringify({
+          version: 1,
+          streamThresholdMs: 30_000,
+          includePodcasts: false,
+          graphQuery: {
+            measure: "uniqueArtists",
+            timeBucket: null,
+            breakdown: "none",
+            chart: "bar",
+            entityKeys: [],
+            from: null,
+            to: null,
+          },
+        }),
+      ),
+    );
+    expect(loaded.prefs.graphQuery).toEqual(defaultPrefs().graphQuery);
+    expect(loaded.changed).toBe(true);
+  });
+
+  // Entity keys belong to one upload, so a saved list is dropped.
+  // Input: streams per year, broken down by artist, with one key.
+  // Expected: the year chart, an empty key list, and a rewrite.
+  it("keeps a legal chart and drops entity keys", () => {
+    const loaded = readPrefs(
+      memoryStorage(
+        JSON.stringify({
+          version: 1,
+          streamThresholdMs: 30_000,
+          includePodcasts: false,
+          graphQuery: {
+            measure: "streams",
+            timeBucket: "year",
+            breakdown: "artist",
+            chart: "bar",
+            entityKeys: ["ada"],
+            from: null,
+            to: null,
+          },
+        }),
+      ),
+    );
+    expect(loaded.prefs.graphQuery.measure).toBe("streams");
+    expect(loaded.prefs.graphQuery.timeBucket).toBe("year");
+    expect(loaded.prefs.graphQuery.breakdown).toBe("artist");
+    expect(loaded.prefs.graphQuery.entityKeys).toEqual([]);
+    expect(loaded.changed).toBe(true);
   });
 });
 
